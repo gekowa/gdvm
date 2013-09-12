@@ -301,6 +301,17 @@ doUpload = function (uctx) {
 					// failed?
 					callback("UPLOAD_FAILED");
 				}
+			},
+			/* error */
+			function (err) {
+				uploadProgress[uctx.videoId] = "Error occurred, retry in 5s...";
+				setTimeout(function () {
+					var ctx = context.loadContext(uctx.taskPath);
+					ctx.status = enums.TASK_STATUS.Downloaded;
+					context.saveContext(uctx.taskPath, ctx);
+
+					uploadingVids.splice(uploadingVids.indexOf(uctx.videoId), 1);
+				}, 5000);
 			});
 
 		},
@@ -452,7 +463,10 @@ uploadFile = function (urlstring, filePath, paramName, contentType, form, encodi
 		client.end(trailerBuffer);
 	})
 	.on("error", function (err) {
-		console.log("Upload File Error: " + err);
+		// console.log("Upload File Error: " + err);
+		if (errorCallback && typeof errorCallback === "function") {
+			errorCallback(err);
+		}
 	})
 	.pipe(client, {end: false});
 
@@ -471,7 +485,9 @@ uploadFile = function (urlstring, filePath, paramName, contentType, form, encodi
 				}
 			});
 		} else {
-			console.log("Upload Response Error: " + res.statusCode);
+			if (errorCallback && typeof errorCallback === "function") {
+				errorCallback("Status Code: " + res.statusCode);
+			}
 		}
 	});
 };
