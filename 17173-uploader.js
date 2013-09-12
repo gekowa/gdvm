@@ -36,6 +36,7 @@ var ctor
 	, CONTROL_PAGE_URL = "http://17173.tv.sohu.com/control/"
 	, UPLOAD_PAGE_URL = "http://17173.tv.sohu.com/control/upload.php"
 
+	, lastInitUpload = new Date()
 
 	, HEART_BEAR_INT = 30000
 	, FOLDER_LOOP_INT = 10000
@@ -102,9 +103,9 @@ ctor.prototype.work = function () {
 		},
 		function (callback) {
 			// setup hearbeat
-			// setInterval(function () {
-			// 	request.get(CONTROL_PAGE_URL);
-			// }, HEART_BEAR_INT);
+			setInterval(function () {
+				request.get(CONTROL_PAGE_URL);
+			}, HEART_BEAR_INT);
 
 			// setup folder loop
 			setInterval(function () {
@@ -123,8 +124,14 @@ ctor.prototype.work = function () {
 							uploadingVids.length < MAX_UPLOAD_SESSIONS) {
 
 							self.initUpload(taskPath, ctx);
+
+							lastInitUpload = new Date();
 						}
 					}
+				}
+
+				if (new Date() - lastInitUpload > 10 * 60 * 1000 /* 10 min */) {
+					process.exit();
 				}
 			}, FOLDER_LOOP_INT);
 
@@ -158,6 +165,8 @@ ctor.prototype.work = function () {
 				}
 				process.stdout.write(clc.move(0, -lines));
 			}, 1000);
+
+			callback(null);
 		}
 	]);
 };
@@ -204,15 +213,19 @@ doUpload = function (uctx) {
 		// access upload page, get real ip
 		function (callback) {
 			request.get(UPLOAD_PAGE_URL, function (error, res, body) {
-				var decoded = iconv.decode(body, "gb2312"),
-					realUploadPageUrl, realUploadServerHost;
-				decoded.match(/'(http[\w\W]+?)'/);
-				realUploadPageUrl = RegExp.$1;
-				realUploadPageUrl = url.parse(realUploadPageUrl);
+				if (error) {
+					callback("GET Real IP Failed: " + error);
+				} else if (res.statusCode === 200) {
+					var decoded = iconv.decode(body, "gb2312"),
+						realUploadPageUrl, realUploadServerHost;
+					decoded.match(/'(http[\w\W]+?)'/);
+					realUploadPageUrl = RegExp.$1;
+					realUploadPageUrl = url.parse(realUploadPageUrl);
 
-				realUploadServerHost = realUploadPageUrl.host;
+					realUploadServerHost = realUploadPageUrl.host;
 
-				callback(null, realUploadServerHost);
+					callback(null, realUploadServerHost);
+				}
 			});
 		},
 		// upload_2
@@ -374,7 +387,7 @@ postMultipart = function (urlstring, form, encoding, callback) {
 	client.end();
 };
 
-uploadFile = function (urlstring, filePath, paramName, contentType, form, encoding, progressCallback, finishCallback) {
+uploadFile = function (urlstring, filePath, paramName, contentType, form, encoding, progressCallback, finishCallback, errorCallback) {
 	var boundary = "---------------------------" + randomString(7),
 		boundaryBuffer = new Buffer("\r\n--" + boundary + "\r\n"),
 		trailerBuffer = new Buffer("\r\n--" + boundary + "--\r\n"),
@@ -433,21 +446,28 @@ uploadFile = function (urlstring, filePath, paramName, contentType, form, encodi
 	.on("end", function () {
 		client.end(trailerBuffer);
 	})
+	.on("error", function (err) {
+		console.log("Upload File Error: " + err);
+	})
 	.pipe(client, {end: false});
 
 	client.on("response", function(res) {
-		var arrayOfBuffers = [];
+		if (res.statusCode === 200) {
+			var arrayOfBuffers = [];
 
-		res.on("data", function (chunk) {
-			arrayOfBuffers.push(chunk);
-		});
+			res.on("data", function (chunk) {
+				arrayOfBuffers.push(chunk);
+			});
 
-		res.on("end", function () {
-			var buffer = Buffer.concat(arrayOfBuffers);
-			if (finishCallback && typeof finishCallback === "function") {
-				finishCallback(res, iconv.decode(buffer, encoding));
-			}
-		});
+			res.on("end", function () {
+				var buffer = Buffer.concat(arrayOfBuffers);
+				if (finishCallback && typeof finishCallback === "function") {
+					finishCallback(res, iconv.decode(buffer, encoding));
+				}
+			});
+		} else {
+			console.log("Upload Response Error: " + res.statusCode);
+		}
 	});
 };
 
