@@ -50,15 +50,15 @@ md5 = function (str) {
 };
 
 randomString = function (size) {
-    size = size || 6;
-    var code_string = 'ABCDEFabcdef0123456789';
-    var max_num = code_string.length + 1;
-    var new_pass = '';
-    while (size > 0) {
-        new_pass += code_string.charAt(Math.floor(Math.random() * max_num));
-        size--;
-    }
-    return new_pass;
+	size = size || 6;
+	var code_string = 'ABCDEFabcdef0123456789';
+	var max_num = code_string.length + 1;
+	var new_pass = '';
+	while (size > 0) {
+		new_pass += code_string.charAt(Math.floor(Math.random() * max_num));
+		size--;
+	}
+	return new_pass;
 };
 
 ctor = function (dataPath, dateString, username, password) {
@@ -72,7 +72,6 @@ ctor = function (dataPath, dateString, username, password) {
 
 ctor.prototype.work = function () {
 	var self = this;
-
 
 	this.jar = request.jar();
 	request = request.defaults({jar: this.jar, encoding: null});
@@ -248,20 +247,20 @@ doUpload = function (uctx) {
 			postMultipart(upload2UrlString, {
 				"txtTitle": uctx.title,
 				"txtbclass": "1",
-	            "txtGame1": "10278",
-	            "txtgamename1": "SD",
-	            "h_selectnum1": "492",
-	            "h_selectnum3": "0",
-	            "h_selectnum2": "0",
-	            "h_selectnum4": "0",
-	            "txtGame12": "0",
-	            "txtTag1": "SD",
-	            "txtTag2": "",
-	            "txtTag3": "",
-	            "txtTag4": "",
-	            "txtTag5": "",
-	            "txtComment": uctx.title,
-	            "txtComefrom": "1"
+				"txtGame1": "10278",
+				"txtgamename1": "SD",
+				"h_selectnum1": "492",
+				"h_selectnum3": "0",
+				"h_selectnum2": "0",
+				"h_selectnum4": "0",
+				"txtGame12": "0",
+				"txtTag1": "SD",
+				"txtTag2": "",
+				"txtTag3": "",
+				"txtTag4": "",
+				"txtTag5": "",
+				"txtComment": uctx.title,
+				"txtComefrom": "1"
 			}, "gb2312", function (res, body) {
 				if (res.statusCode === 200) {
 					body.match(/FlashVars=\"([^\"]+)\"/);
@@ -398,6 +397,10 @@ postMultipart = function (urlstring, form, encoding, callback) {
 				callback(res, iconv.decode(buffer, encoding));
 			}
 		});
+	});
+
+	client.on('error', function(e) {
+		console.log('problem with request: ' + e.message);
 	});
 
 	client.end();
