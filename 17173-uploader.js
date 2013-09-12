@@ -71,8 +71,8 @@ ctor = function (dataPath, dateString, username, password) {
 };
 
 ctor.prototype.work = function () {
-	var self = this,
-		cols = process.stdout.columns;
+	var self = this;
+
 
 	this.jar = request.jar();
 	request = request.defaults({jar: this.jar, encoding: null});
@@ -107,8 +107,7 @@ ctor.prototype.work = function () {
 				request.get(CONTROL_PAGE_URL);
 			}, HEART_BEAR_INT);
 
-			// setup folder loop
-			setInterval(function () {
+			var folderLoop = function () {
 				var pathOfDate = context.getPathOfDate(self.dataPath, self.dateString),
 					paths = fs.readdirSync(pathOfDate),
 					taskPath, i, s, ctx;
@@ -133,11 +132,17 @@ ctor.prototype.work = function () {
 				if (new Date() - lastInitUpload > 10 * 60 * 1000 /* 10 min */) {
 					process.exit();
 				}
-			}, FOLDER_LOOP_INT);
+			};
+
+			folderLoop();
+
+			// setup folder loop
+			setInterval(folderLoop, FOLDER_LOOP_INT);
 
 			// setup status display
 			setInterval(function () {
-				var vid, p, disp, rate, eta, i, bars, lines = 0;
+				var vid, p, disp, rate, eta, i, bars, lines = 0,
+					cols = process.stdout.columns;
 				for (vid in uploadProgress) {
 					bars = "";
 					p = uploadProgress[vid];
@@ -155,7 +160,7 @@ ctor.prototype.work = function () {
 						disp = util.format(" ID: %s %s", vid.substr(0, 6), disp);
 					}
 
-					for (i = 0; i < cols.disp.length - 1; i++) {
+					for (i = 0; i < cols - disp.length - 1; i++) {
 						bars += " ";
 					}
 
@@ -172,7 +177,7 @@ ctor.prototype.work = function () {
 };
 
 ctor.prototype.initUpload = function (taskPath, ctx) {
-	var dirname = path.dirname(taskPath),
+	var basename = path.basename(taskPath),
 		myusername, myuserpass,
 		i, uctx, cookie;
 
@@ -190,7 +195,7 @@ ctor.prototype.initUpload = function (taskPath, ctx) {
 	}
 
 	uctx = {
-		"title": util.format("[大挪移]漫猫SD敢达 作战视频 %s %s %s", this.dateString, dirname, ctx.additionalTitleInfo),
+		"title": util.format("[大挪移]漫猫SD敢达 作战视频 %s %s %s", this.dateString, basename, ctx.additionalTitleInfo),
 		"videoFilePath": path.join(taskPath, ctx.videoFileName),
 		"myusername": myusername,
 		"myuserpass": myuserpass,
@@ -311,7 +316,7 @@ doUpload = function (uctx) {
 				}), ctx;
 			request.get(uploadedUrl, function (error, res, body) {
 				if (!error && res.statusCode === 200) {
-					var decoded = iconv.decode(body, "gb2312");
+					var decoded = body + ""; // iconv.decode(body, "gb2312");
 					if (decoded.indexOf("flag=1") >= 0) {
 						uploadProgress[uctx.videoId] = "Upload success!";
 					} else if (decoded.indexOf("flag=2") >= 0) {
