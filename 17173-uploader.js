@@ -192,7 +192,7 @@ ctor.prototype.initUpload = function (taskPath, ctx) {
 
 		if (cookie.name === "PHPSESSID") {
 			phpSessionId = cookie.value;
-			console.log("PHPSESSID:" + phpSessionId);
+			// console.log("PHPSESSID:" + phpSessionId);
 			continue;
 		}
 	}
@@ -369,7 +369,7 @@ doUpload = function (uctx) {
 				cookieString += (cookie.name + "=" + cookie.value + "; ");
 			}
 
-			console.log(cookieString);
+			// console.log(cookieString);
 
 			postForm(POST_VIDEO_INFO_URL,
 				"tmp_id=" + uctx.videoTempId +
@@ -391,7 +391,8 @@ doUpload = function (uctx) {
 						result = eval("(" + decoded + ")");
 
 					if (result.success === 1) {
-						// upload context
+						uploadProgress[uctx.videoId] = "Upload success!";
+						// update context
 						ctx = context.loadContext(uctx.taskPath);
 						ctx.status = enums.TASK_STATUS.Uploaded;
 						ctx.uploadFinished = new Date();
@@ -399,6 +400,7 @@ doUpload = function (uctx) {
 
 						uploadingVids.splice(uploadingVids.indexOf(uctx.videoId), 1);
 					} else {
+						uploadProgress[uctx.videoId] = "Upload Failed: " + decoded;
 						callback("Save Failed!");
 					}
 				} else {
