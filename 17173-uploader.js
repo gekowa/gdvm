@@ -1,10 +1,11 @@
-/* 17173 uploader */
+
+ /* 17173 uploader */
 
 var ctor
 	, async = require("async")
-	, cheerio = require("cheerio")
+	// , cheerio = require("cheerio")
 	, crypto = require('crypto')
-	, fork = require('child_process').fork
+	// , fork = require('child_process').fork
 	, fs = require("fs")
 	, iconv = require('iconv-lite')
 	, logger = require("./logger.js")
@@ -24,6 +25,7 @@ var ctor
 	, doUpload
 	, postMultipart
 	, uploadFile
+	, postForm
 	, formatBytes
 	, formatSeconds
 
@@ -31,10 +33,13 @@ var ctor
 	, uploadProgress = {}
 
 	// constants
-	, LOGIN_URL = "http://passport.sohu.com/sso/login.jsp?userid=%s&password=%s&appid=1029&persistentcookie=0&s=1377093296152&b=7&w=1920&pwdtype=1&v=26"
-	, PLOGIN_URL = "http://17173.tv.sohu.com/plogin.php"
-	, CONTROL_PAGE_URL = "http://17173.tv.sohu.com/control/"
-	, UPLOAD_PAGE_URL = "http://17173.tv.sohu.com/control/upload.php"
+	, LOGIN_URL = "http://passport.17173.com/sso/login?v=1&username=%s&password=%s&domain=17173.com&appid=10086&persistentcookie=0&callback=loginCB"
+	// , PLOGIN_URL = "http://17173.tv.sohu.com/plogin.php"
+	, CONTROL_PAGE_URL = "http://help.17173.com/spp/login_success.php"
+	, UPLOAD_PAGE_URL = "http://v.17173.com/u/upload"
+	, GET_VIDEO_TEMP_ID = "http://v.17173.com/api/video/GetVideoTmpId"
+	, POST_LOGIN_URL = "http://v.17173.com/site/login"
+	, POST_VIDEO_INFO_URL = "http://v.17173.com/api/Video/PostVideoInfo"
 
 	, lastInitUpload = new Date()
 
@@ -77,6 +82,12 @@ ctor.prototype.work = function () {
 	request = request.defaults({jar: this.jar, encoding: null});
 
 	async.waterfall([
+		// warm up
+		function (callback) {
+			request.get(UPLOAD_PAGE_URL, function () {
+				callback(null);
+			});
+		},
 		// login
 		function (callback) {
 			logger.info(util.format("Logging in 17173 [%s]...", self.username));
@@ -85,14 +96,10 @@ ctor.prototype.work = function () {
 
 			request.get(util.format(LOGIN_URL, self.username, passwordMd5), function (error, response, body) {
 				if (!error && response.statusCode === 200) {
-					var decoded = iconv.decode(body, "gb2312");
-					if (decoded.indexOf("login_status='success'") > 0) {
+					var decoded = body.toString();
+					if (decoded.indexOf("\"status\":1") > 0) {
 						logger.info("Login success!");
-
-						request.get(PLOGIN_URL, function (error, response) {
-							// var cookies = response.headers["Set-Cookie"];
-							callback(null);
-						});
+						callback(null);
 					} else {
 						logger.error("Login failed!");
 						callback("LOGIN_FALIED");
@@ -177,29 +184,30 @@ ctor.prototype.work = function () {
 
 ctor.prototype.initUpload = function (taskPath, ctx) {
 	var basename = path.basename(taskPath),
-		myusername, myuserpass,
-		i, uctx, cookie;
+		// myusername, myuserpass,
+		i, uctx, cookie, phpSessionId;
 
 	for(i = 0; i < this.jar.cookies.length; i++) {
 		cookie = this.jar.cookies[i];
-		if (cookie.name === "my_username") {
-			myusername = cookie.value;
-			continue;
-		}
 
-		if (cookie.name === "my_userpass") {
-			myuserpass = cookie.value;
+		if (cookie.name === "PHPSESSID") {
+			phpSessionId = cookie.value;
+			console.log("PHPSESSID:" + phpSessionId);
 			continue;
 		}
 	}
 
+
 	uctx = {
-		"title": util.format("[大挪移]漫猫SD敢达 作战视频 %s %s %s", this.dateString, basename, ctx.additionalTitleInfo),
+		"title": util.format("[大挪移]漫猫SD敢达%s %s", this.dateString, ctx.additionalTitleInfo),
+		"intro": util.format("日期: %s\r\n 视频代码: %s\r\n 作者: %s", this.dateString, basename, ctx.additionalTitleInfo),
 		"videoFilePath": path.join(taskPath, ctx.videoFileName),
-		"myusername": myusername,
-		"myuserpass": myuserpass,
+		// "myusername": myusername,
+		// "myuserpass": myuserpass,
 		"videoId": ctx.videoId,
-		"taskPath": taskPath
+		"taskPath": taskPath,
+		"phpSessionId": phpSessionId,
+		"cookieJar": this.jar
 	};
 
 	uploadingVids.push(ctx.videoId);
@@ -214,79 +222,112 @@ ctor.prototype.initUpload = function (taskPath, ctx) {
 
 doUpload = function (uctx) {
 	async.waterfall([
+		// post login
+		function (callback) {
+			request.get(POST_LOGIN_URL, function (error, res, body) {
+				if (!error && res.statusCode === 200) {
+					var result = eval("(" + body.toString() + ")");
+					if (result.loginStatus === 1) {
+						uctx.userId = result.data["user_id"];
+						callback(null);
+					} else {
+						callback("Login actually failed...");
+					}
+				}
+			});
+		},
 		// access upload page, get real ip
 		function (callback) {
 			request.get(UPLOAD_PAGE_URL, function (error, res, body) {
 				if (error) {
 					callback("GET Real IP Failed: " + error);
 				} else if (res.statusCode === 200) {
-					var decoded = iconv.decode(body, "gb2312"),
-						realUploadPageUrl, realUploadServerHost;
-					decoded.match(/'(http[\w\W]+?)'/);
+					var decoded = body.toString(),
+						realUploadPageUrl,
+						cookie, i, phpSessionId;
+
+					decoded.match(/data-url="([\w\W]+?)"/);
 					realUploadPageUrl = RegExp.$1;
-					realUploadPageUrl = url.parse(realUploadPageUrl);
+					// realUploadPageUrl = url.parse(realUploadPageUrl);
 
-					realUploadServerHost = realUploadPageUrl.host;
+					uctx.uploadUrl = realUploadPageUrl;
 
-					callback(null, realUploadServerHost);
+					callback(null);
 				}
 			});
 		},
-		// upload_2
-		function (uploadServerHost, callback) {
-			// var upload2Url = url.parse("http://" + uploadServerHost + "/upload_2.php");
-			// upload2Url.query = util.format("user=%s&pass=%s&ismp3=0", uctx.myusername, uctx.myuserpass);
+		// getVideoTempId
+		function (callback) {
+			request.get(GET_VIDEO_TEMP_ID, function (error, res, body) {
+				if (error) {
+					callback("Get Video Temp Id Error: " + error);
+				} else if (res.statusCode === 200) {
+					var decoded = body.toString(),
+						result = eval("(" + decoded + ")");
 
-			var upload2UrlString = url.format({
-				"protocol": "http",
-				"host": uploadServerHost,
-				"pathname": "/upload_2.php",
-				"search": util.format("user=%s&pass=%s&ismp3=0", uctx.myusername, uctx.myuserpass)
-			});
-
-			postMultipart(upload2UrlString, {
-				"txtTitle": uctx.title,
-				"txtbclass": "1",
-				"txtGame1": "10278",
-				"txtgamename1": "SD",
-				"h_selectnum1": "492",
-				"h_selectnum3": "0",
-				"h_selectnum2": "0",
-				"h_selectnum4": "0",
-				"txtGame12": "0",
-				"txtTag1": "SD",
-				"txtTag2": "",
-				"txtTag3": "",
-				"txtTag4": "",
-				"txtTag5": "",
-				"txtComment": uctx.title,
-				"txtComefrom": "1"
-			}, "gb2312", function (res, body) {
-				if (res.statusCode === 200) {
-					body.match(/FlashVars=\"([^\"]+)\"/);
-					var flashVars = RegExp.$1;
-					// console.log(flashVars);
-					callback(null, uploadServerHost, flashVars);
+					if (result.success === 1) {
+						uctx.videoTempId = result.id;
+						callback(null);
+					} else {
+						callback("Get Video Temp Id Failed!");
+					}
 				}
 			});
-
 		},
-		// upload_init
-		function (uploadServerHost, uploadInitParameters, callback) {
+		// // upload_2
+		// function (callback) {
+		// 	// var upload2Url = url.parse("http://" + uploadServerHost + "/upload_2.php");
+		// 	// upload2Url.query = util.format("user=%s&pass=%s&ismp3=0", uctx.myusername, uctx.myuserpass);
+
+		// 	// var upload2UrlString = url.format({
+		// 	// 	"protocol": "http",
+		// 	// 	"host": uploadServerHost,
+		// 	// 	"pathname": "/upload_2.php",
+		// 	// 	"search": util.format("user=%s&pass=%s&ismp3=0", uctx.myusername, uctx.myuserpass)
+		// 	// });
+
+		// 	postMultipart(uctx.uploadUrl, {
+		// 		"txtTitle": uctx.title,
+		// 		"txtbclass": "1",
+		// 		"txtGame1": "10278",
+		// 		"txtgamename1": "SD",
+		// 		"h_selectnum1": "492",
+		// 		"h_selectnum3": "0",
+		// 		"h_selectnum2": "0",
+		// 		"h_selectnum4": "0",
+		// 		"txtGame12": "0",
+		// 		"txtTag1": "SD",
+		// 		"txtTag2": "",
+		// 		"txtTag3": "",
+		// 		"txtTag4": "",
+		// 		"txtTag5": "",
+		// 		"txtComment": uctx.title,
+		// 		"txtComefrom": "1"
+		// 	}, "gb2312", function (res, body) {
+		// 		if (res.statusCode === 200) {
+		// 			body.match(/FlashVars=\"([^\"]+)\"/);
+		// 			var flashVars = RegExp.$1;
+		// 			// console.log(flashVars);
+		// 			callback(null, uploadServerHost, flashVars);
+		// 		}
+		// 	});
+
+		// },
+		// upload start
+		function (callback) {
 			var extname = path.extname(uctx.videoFilePath).replace(/^\./, ""),
-				basename = path.basename(uctx.videoFilePath),
-				uploadInitUrl = url.format({
-					"protocol": "http",
-					"host": uploadServerHost,
-					"pathname": "/uploadinit.php",
-					"search": uploadInitParameters + "&extendname=" + extname
-				});
+				basename = path.basename(uctx.videoFilePath)
+				;
 
-			uploadFile(uploadInitUrl, uctx.videoFilePath, "Filedata", "application/octet-stream",
+			uploadFile(uctx.uploadUrl, uctx.videoFilePath, "Filedata", "application/octet-stream",
 			{
 				"Filename": basename,
-				"Upload": "Submit Query"
-			}, "gb2312",
+				"Upload": "Submit Query",
+				"user_id": uctx.userId,
+				"PHPSESSID": uctx.phpSessionId,
+				"user_ip": "127.0.0.1",
+				"tmp_id": uctx.videoTempId
+			}, "utf-8",
 			/* progress */
 			function (progress) {
 				uploadProgress[uctx.videoId] = progress;
@@ -294,11 +335,17 @@ doUpload = function (uctx) {
 			/* finished*/
 			function (res, body) {
 				if (res.statusCode === 200) {
-					// console.log(body);
-					callback(null, uploadServerHost, uploadInitParameters);
+					var decoded = body.toString(),
+						result = eval("(" + decoded + ")");
+
+					if (result.success === 1) {
+						callback(null);
+					} else {
+						callback("Upload Failed!");
+					}
 				} else {
 					// failed?
-					callback("UPLOAD_FAILED");
+					callback("Upload Interrupted!");
 				}
 			},
 			/* error */
@@ -314,39 +361,89 @@ doUpload = function (uctx) {
 			});
 
 		},
-		// uploaded
-		function (uploadServerHost, uploadInitParameters, callback) {
-			var extname = path.extname(uctx.videoFilePath).replace(/^\./, ""),
-				size = fs.statSync(uctx.videoFilePath).size,
-				uploadedUrl = url.format({
-					"protocol": "http",
-					"host": uploadServerHost,
-					"pathname": "/uploaded.php",
-					"search": uploadInitParameters + "&size=" + size + "&extendname=" + extname
-				}), ctx;
-			request.get(uploadedUrl, function (error, res, body) {
-				if (!error && res.statusCode === 200) {
-					var decoded = body + ""; // iconv.decode(body, "gb2312");
-					if (decoded.indexOf("flag=1") >= 0) {
-						uploadProgress[uctx.videoId] = "Upload success!";
-					} else if (decoded.indexOf("flag=2") >= 0) {
-						uploadProgress[uctx.videoId] = "Upload success, no need to encode!";
-					} else if (decoded.indexOf("flag=3") >= 0) {
-						uploadProgress[uctx.videoId] = "Upload success, duplicated!";
+		// finally post the info if video is OK
+		function (callback) {
+			var cookieString = "", i, cookie;
+			for (i = 0; i < uctx.cookieJar.cookies.length; i++) {
+				cookie = uctx.cookieJar.cookies[i];
+				cookieString += (cookie.name + "=" + cookie.value + "; ");
+			}
+
+			console.log(cookieString);
+
+			postForm(POST_VIDEO_INFO_URL,
+				"tmp_id=" + uctx.videoTempId +
+				"&user_id=" + uctx.userId +
+				"&title=" + uctx.title +
+				"&intro=" + uctx.intro +
+				"&user_ip=127.0.0.1&user_port=&needOtherVideo=0&big_class=1&sub_class=10278" +
+				"&uTags=SD敢达&tags=SD敢达&is_copy=1&is_open=1&passwd=",
+				/* headers */
+				{
+					"Cookie": cookieString,
+					"Referer": "http://v.17173.com/u/upload"
+				},
+			/* finished */
+			function (res, body) {
+				if (res.statusCode === 200) {
+					var ctx,
+						decoded = body.toString(),
+						result = eval("(" + decoded + ")");
+
+					if (result.success === 1) {
+						// upload context
+						ctx = context.loadContext(uctx.taskPath);
+						ctx.status = enums.TASK_STATUS.Uploaded;
+						ctx.uploadFinished = new Date();
+						context.saveContext(uctx.taskPath, ctx);
+
+						uploadingVids.splice(uploadingVids.indexOf(uctx.videoId), 1);
 					} else {
-						uploadProgress[uctx.videoId] = decoded;
+						callback("Save Failed!");
 					}
-
-					// upload context
-					ctx = context.loadContext(uctx.taskPath);
-					ctx.status = enums.TASK_STATUS.Uploaded;
-					ctx.uploadFinished = new Date();
-					context.saveContext(uctx.taskPath, ctx);
-
-					uploadingVids.splice(uploadingVids.indexOf(uctx.videoId), 1);
+				} else {
+					// failed?
+					callback("Upload Interrupted!");
 				}
+			},
+			/* error */
+			function (err) {
+				console.log(err);
 			});
 		}
+		// // uploaded
+		// function (uploadServerHost, uploadInitParameters, callback) {
+		// 	var extname = path.extname(uctx.videoFilePath).replace(/^\./, ""),
+		// 		size = fs.statSync(uctx.videoFilePath).size,
+		// 		uploadedUrl = url.format({
+		// 			"protocol": "http",
+		// 			"host": uploadServerHost,
+		// 			"pathname": "/uploaded.php",
+		// 			"search": uploadInitParameters + "&size=" + size + "&extendname=" + extname
+		// 		}), ctx;
+		// 	request.get(uploadedUrl, function (error, res, body) {
+		// 		if (!error && res.statusCode === 200) {
+		// 			var decoded = body + ""; // iconv.decode(body, "gb2312");
+		// 			if (decoded.indexOf("flag=1") >= 0) {
+		// 				uploadProgress[uctx.videoId] = "Upload success!";
+		// 			} else if (decoded.indexOf("flag=2") >= 0) {
+		// 				uploadProgress[uctx.videoId] = "Upload success, no need to encode!";
+		// 			} else if (decoded.indexOf("flag=3") >= 0) {
+		// 				uploadProgress[uctx.videoId] = "Upload success, duplicated!";
+		// 			} else {
+		// 				uploadProgress[uctx.videoId] = decoded;
+		// 			}
+
+		// 			// upload context
+		// 			ctx = context.loadContext(uctx.taskPath);
+		// 			ctx.status = enums.TASK_STATUS.Uploaded;
+		// 			ctx.uploadFinished = new Date();
+		// 			context.saveContext(uctx.taskPath, ctx);
+
+		// 			uploadingVids.splice(uploadingVids.indexOf(uctx.videoId), 1);
+		// 		}
+		// 	});
+		// }
 	]);
 };
 
@@ -438,7 +535,7 @@ uploadFile = function (urlstring, filePath, paramName, contentType, form, encodi
 	started = new Date();
 
 	client = http.request({
-		host: theUrl.host,
+		host: theUrl.host.replace(/:80/, ""),
 		method: "POST",
 		path: theUrl.path,
 		headers: {
@@ -493,6 +590,56 @@ uploadFile = function (urlstring, filePath, paramName, contentType, form, encodi
 			}
 		}
 	});
+};
+
+postForm = function (urlstring, formData, additionalHeaders, finishCallback, errorCallback) {
+	var theUrl = url.parse(urlstring),
+		client, contentLength,
+		headers = {}, name, value;
+
+	contentLength = formData.length;
+
+	headers = {
+		"Connection": "close",
+		"Content-Length": contentLength,
+		"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+		"User-Agent": "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.57 Safari/537.36"
+	};
+
+	for (name in additionalHeaders || {}) {
+		headers[name] = additionalHeaders[name];
+	}
+
+	client = http.request({
+		host: theUrl.host.replace(/:80/, ""),
+		method: "POST",
+		path: theUrl.path,
+		headers: headers
+	});
+
+	client.on("response", function(res) {
+		if (res.statusCode === 200) {
+			var arrayOfBuffers = [];
+
+			res.on("data", function (chunk) {
+				arrayOfBuffers.push(chunk);
+			});
+
+			res.on("end", function () {
+				var buffer = Buffer.concat(arrayOfBuffers);
+				if (finishCallback && typeof finishCallback === "function") {
+					finishCallback(res, buffer.toString());
+				}
+			});
+		} else {
+			if (errorCallback && typeof errorCallback === "function") {
+				errorCallback("Status Code: " + res.statusCode);
+			}
+		}
+	});
+
+	client.end(formData);
+
 };
 
 formatBytes = function (num) {

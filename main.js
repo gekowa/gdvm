@@ -1,19 +1,20 @@
 var program = require("commander"),
 	logger = require("./logger.js"),
 	path = require("path"),
-	mode, from, dataPath, now, dateString,
+	mode, from, dataPath, now, dateString, vhp,
 	username, password,
-	downloaderCtor, downloader, uploader,
+	downloaderCtor, downloader, uploaderCtor, uploader,
 	i;
 
 program
-	.version('0.0.1')
+	.version('0.0.2')
 	.option('-m, --mode <mode>', 'Program running mode, (U)pload or (D)ownload.')
 	.option('-f, --from <from>', 'Video origin, should be (Daum) or (Naver).')
+	.option('-v, --vhp <vhp>', 'Video host provider, (17173) or (QQ).')
 	.option('--path <path>', 'Working path.')
 	.option('-d, --date <date>', 'Speicify working date.')
-	.option("--17173user <17173user>", "Specify 17173 username.")
-	.option("--17173pass <17173pass>", "Specify 17173 password.")
+	.option("--user <user>", "Specify video host proivder username.")
+	.option("--pass <pass>", "Specify video host proivder password.")
 	.parse(process.argv);
 
 logger.log("SD VideoMover (Node.js version) Started!");
@@ -60,15 +61,30 @@ if (program.mode === "D") {
 } else if (program.mode === "U") {
 	logger.info("Upload mode.");
 
-	username = program["17173user"];
-	password = program["17173pass"];
-
-	if (!username || !password) {
-		logger.error("Must provide 17173 username and password.");
+	vhp = program.vhp;
+	if (!vhp) {
+		logger.error("Must --vhp provide video host provider.");
 		process.exit(1);
 	}
 
-	uploader = new (require("./17173-uploader.js").ctor)(dataPath, dateString, username, password);
+	vhp = vhp.toLowerCase();
+
+	uploaderCtor = require("./" + vhp + "-uploader.js");
+
+	if (!uploaderCtor) {
+		logger.error("--vhp argument error, unsupported video host provider.");
+		process.exit(1);
+	}
+
+	username = program["user"];
+	password = program["pass"];
+
+	if (!username || !password) {
+		logger.error("Must provide username and password for video host provider.");
+		process.exit(1);
+	}
+
+	uploader = new uploaderCtor.ctor(dataPath, dateString, username, password);
 	uploader.work();
 } else if (program.mode === "DU") {
 	logger.info("Download then Upload mode.");
