@@ -45,7 +45,7 @@ var ctor
 
 	, HEART_BEAR_INT = 30000
 	, FOLDER_LOOP_INT = 10000
-	, MAX_UPLOAD_SESSIONS = 3;
+	, MAX_UPLOAD_SESSIONS = 1;
 
 md5 = function (str) {
 	var md5sum = crypto.createHash('md5');
@@ -229,9 +229,12 @@ doUpload = function (uctx) {
 					var result = eval("(" + body.toString() + ")");
 					if (result.loginStatus === 1) {
 						uctx.userId = result.data["user_id"];
+						logger.info("Post login verify OK. UserId:" + uctx.userId);
 						callback(null);
 					} else {
-						callback("Login actually failed...");
+						logger.error("Post login error!");
+						logger.error(res.statusCode + error);
+						callback("POST_LOGIN_ERROR!");
 					}
 				}
 			});
@@ -240,7 +243,9 @@ doUpload = function (uctx) {
 		function (callback) {
 			request.get(UPLOAD_PAGE_URL, function (error, res, body) {
 				if (error) {
-					callback("GET Real IP Failed: " + error);
+					logger.error("Get upload target error!");
+					logger.error(res.statusCode + error);
+					callback("GET_UPLOAD_SERVER_ERROR");
 				} else if (res.statusCode === 200) {
 					var decoded = body.toString(),
 						realUploadPageUrl,
@@ -251,7 +256,7 @@ doUpload = function (uctx) {
 					// realUploadPageUrl = url.parse(realUploadPageUrl);
 
 					uctx.uploadUrl = realUploadPageUrl;
-
+					logger.info("Upload target is:" + uctx.uploadUrl);
 					callback(null);
 				}
 			});
@@ -260,64 +265,30 @@ doUpload = function (uctx) {
 		function (callback) {
 			request.get(GET_VIDEO_TEMP_ID, function (error, res, body) {
 				if (error) {
-					callback("Get Video Temp Id Error: " + error);
+					logger.error("Get video temp id error!");
+					logger.error(res.statusCode + error);
+					callback("GET_VIDEO_TEMP_ID_ERROR");
 				} else if (res.statusCode === 200) {
 					var decoded = body.toString(),
 						result = eval("(" + decoded + ")");
 
 					if (result.success === 1) {
 						uctx.videoTempId = result.id;
+						logger.info("Video temp Id:" + uctx.videoTempId);
 						callback(null);
 					} else {
+						logger.error("Get Video Temp Id Failed!" + decoded);
 						callback("Get Video Temp Id Failed!");
 					}
 				}
 			});
 		},
-		// // upload_2
-		// function (callback) {
-		// 	// var upload2Url = url.parse("http://" + uploadServerHost + "/upload_2.php");
-		// 	// upload2Url.query = util.format("user=%s&pass=%s&ismp3=0", uctx.myusername, uctx.myuserpass);
-
-		// 	// var upload2UrlString = url.format({
-		// 	// 	"protocol": "http",
-		// 	// 	"host": uploadServerHost,
-		// 	// 	"pathname": "/upload_2.php",
-		// 	// 	"search": util.format("user=%s&pass=%s&ismp3=0", uctx.myusername, uctx.myuserpass)
-		// 	// });
-
-		// 	postMultipart(uctx.uploadUrl, {
-		// 		"txtTitle": uctx.title,
-		// 		"txtbclass": "1",
-		// 		"txtGame1": "10278",
-		// 		"txtgamename1": "SD",
-		// 		"h_selectnum1": "492",
-		// 		"h_selectnum3": "0",
-		// 		"h_selectnum2": "0",
-		// 		"h_selectnum4": "0",
-		// 		"txtGame12": "0",
-		// 		"txtTag1": "SD",
-		// 		"txtTag2": "",
-		// 		"txtTag3": "",
-		// 		"txtTag4": "",
-		// 		"txtTag5": "",
-		// 		"txtComment": uctx.title,
-		// 		"txtComefrom": "1"
-		// 	}, "gb2312", function (res, body) {
-		// 		if (res.statusCode === 200) {
-		// 			body.match(/FlashVars=\"([^\"]+)\"/);
-		// 			var flashVars = RegExp.$1;
-		// 			// console.log(flashVars);
-		// 			callback(null, uploadServerHost, flashVars);
-		// 		}
-		// 	});
-
-		// },
 		// upload start
 		function (callback) {
 			var extname = path.extname(uctx.videoFilePath).replace(/^\./, ""),
-				basename = path.basename(uctx.videoFilePath)
-				;
+				basename = path.basename(uctx.videoFilePath);
+
+			logger.info("Start upload!");
 
 			uploadFile(uctx.uploadUrl, uctx.videoFilePath, "Filedata", "application/octet-stream",
 			{
@@ -334,16 +305,20 @@ doUpload = function (uctx) {
 			},
 			/* finished*/
 			function (res, body) {
+				logger.info("Upload finished! ");
 				if (res.statusCode === 200) {
 					var decoded = body.toString(),
 						result = eval("(" + decoded + ")");
 
 					if (result.success === 1) {
+						logger.info("Upload successful! ");
 						callback(null);
 					} else {
+						logger.error("Upload Failed! " + decoded);
 						callback("Upload Failed!");
 					}
 				} else {
+					logger.error("Upload Failed! " + res.statusCode);
 					// failed?
 					callback("Upload Interrupted!");
 				}
@@ -391,7 +366,7 @@ doUpload = function (uctx) {
 						result = eval("(" + decoded + ")");
 
 					if (result.success === 1) {
-						uploadProgress[uctx.videoId] = "Upload success!";
+						uploadProgress[uctx.videoId] = "Success!";
 						// update context
 						ctx = context.loadContext(uctx.taskPath);
 						ctx.status = enums.TASK_STATUS.Uploaded;
@@ -399,18 +374,22 @@ doUpload = function (uctx) {
 						context.saveContext(uctx.taskPath, ctx);
 
 						uploadingVids.splice(uploadingVids.indexOf(uctx.videoId), 1);
+
+						logger.info("Save successful! ");
 					} else {
 						uploadProgress[uctx.videoId] = "Upload Failed: " + decoded;
+						logger.error("Save Failed! " + decoded);
 						callback("Save Failed!");
 					}
 				} else {
 					// failed?
-					callback("Upload Interrupted!");
+					logger.error("Save Failed! " + res.statusCode);
+					callback("Save Failed!");
 				}
 			},
 			/* error */
 			function (err) {
-				console.log(err);
+				logger.error(err);
 			});
 		}
 		// // uploaded

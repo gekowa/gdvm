@@ -115,4 +115,13 @@ if (program.mode === "D") {
 	uploader = new (require("./17173-uploader.js").ctor)(dataPath, dateString, username, password);
 	uploader.work();
 	logger.info("Uploaders started!");
+} else if (program.mode === "C") {
+	// check
+
+} else {
+	logger.error("Unsupported mode!");
 }
+
+process.on('uncaughtException', function(err) {
+	logger.error(err);
+});
