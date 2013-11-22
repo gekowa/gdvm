@@ -45,7 +45,7 @@ var ctor
 
 	, HEART_BEAR_INT = 30000
 	, FOLDER_LOOP_INT = 10000
-	, MAX_UPLOAD_SESSIONS = 1;
+	, MAX_UPLOAD_SESSIONS = 3;
 
 md5 = function (str) {
 	var md5sum = crypto.createHash('md5');
@@ -56,9 +56,9 @@ md5 = function (str) {
 
 randomString = function (size) {
 	size = size || 6;
-	var code_string = 'ABCDEFabcdef0123456789';
-	var max_num = code_string.length + 1;
-	var new_pass = '';
+	var code_string = 'ABCDEFabcdef0123456789',
+		max_num = code_string.length + 1,
+		new_pass = '';
 	while (size > 0) {
 		new_pass += code_string.charAt(Math.floor(Math.random() * max_num));
 		size--;
@@ -135,7 +135,7 @@ ctor.prototype.work = function () {
 					}
 				}
 
-				if (new Date() - lastInitUpload > 10 * 60 * 1000 /* 10 min */) {
+				if (new Date() - lastInitUpload > 10 * 60 * 1000 /* 10 min */ && uploadingVids.length === 0) {
 					process.exit();
 				}
 			};
@@ -248,8 +248,7 @@ doUpload = function (uctx) {
 					callback("GET_UPLOAD_SERVER_ERROR");
 				} else if (res.statusCode === 200) {
 					var decoded = body.toString(),
-						realUploadPageUrl,
-						cookie, i, phpSessionId;
+						realUploadPageUrl;
 
 					decoded.match(/data-url="([\w\W]+?)"/);
 					realUploadPageUrl = RegExp.$1;
@@ -285,7 +284,7 @@ doUpload = function (uctx) {
 		},
 		// upload start
 		function (callback) {
-			var extname = path.extname(uctx.videoFilePath).replace(/^\./, ""),
+			var // extname = path.extname(uctx.videoFilePath).replace(/^\./, ""),
 				basename = path.basename(uctx.videoFilePath);
 
 			logger.info("Start upload!");
@@ -570,6 +569,8 @@ uploadFile = function (urlstring, filePath, paramName, contentType, form, encodi
 				errorCallback("Status Code: " + res.statusCode);
 			}
 		}
+	}).on("close", function () {
+		logger.error("The connection is closed.");
 	});
 };
 
