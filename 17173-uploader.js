@@ -229,7 +229,7 @@ doUpload = function (uctx) {
 					var result = eval("(" + body.toString() + ")");
 					if (result.loginStatus === 1) {
 						uctx.userId = result.data["user_id"];
-						logger.info("Post login verify OK. UserId:" + uctx.userId);
+						logger.silly("Post login verify OK. UserId:" + uctx.userId);
 						callback(null);
 					} else {
 						logger.error("Post login error!");
@@ -255,7 +255,7 @@ doUpload = function (uctx) {
 					// realUploadPageUrl = url.parse(realUploadPageUrl);
 
 					uctx.uploadUrl = realUploadPageUrl;
-					logger.info("Upload target is:" + uctx.uploadUrl);
+					logger.silly("Upload target is:" + uctx.uploadUrl);
 					callback(null);
 				}
 			});
@@ -273,7 +273,7 @@ doUpload = function (uctx) {
 
 					if (result.success === 1) {
 						uctx.videoTempId = result.id;
-						logger.info("Video temp Id:" + uctx.videoTempId);
+						logger.silly("Video temp Id:" + uctx.videoTempId);
 						callback(null);
 					} else {
 						logger.error("Get Video Temp Id Failed!" + decoded);
@@ -287,7 +287,7 @@ doUpload = function (uctx) {
 			var // extname = path.extname(uctx.videoFilePath).replace(/^\./, ""),
 				basename = path.basename(uctx.videoFilePath);
 
-			logger.info("Start upload!");
+			logger.silly("Start upload!");
 
 			uploadFile(uctx.uploadUrl, uctx.videoFilePath, "Filedata", "application/octet-stream",
 			{
@@ -304,13 +304,13 @@ doUpload = function (uctx) {
 			},
 			/* finished*/
 			function (res, body) {
-				logger.info("Upload finished! ");
+				logger.silly("Upload finished! ");
 				if (res.statusCode === 200) {
 					var decoded = body.toString(),
 						result = eval("(" + decoded + ")");
 
 					if (result.success === 1) {
-						logger.info("Upload successful! ");
+						logger.silly("Upload successful! ");
 						callback(null);
 					} else {
 						logger.error("Upload Failed! " + decoded);
@@ -374,7 +374,7 @@ doUpload = function (uctx) {
 
 						uploadingVids.splice(uploadingVids.indexOf(uctx.videoId), 1);
 
-						logger.info("Save successful! ");
+						logger.silly("Save successful! ");
 					} else {
 						uploadProgress[uctx.videoId] = "Upload Failed: " + decoded;
 						logger.error("Save Failed! " + decoded);
