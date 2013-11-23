@@ -127,7 +127,7 @@ transcodeVideo = function (videoFilePath, bitrate, callback) {
 
 	ffmpeg = spawn('ffmpeg',
 		['-y', '-i', videoFilePath, '-b', bitrate + 'k', '-minrate', bitrate + 'k', '-maxrate', bitrate + 'k',
-		'-bufsize', '2000k', '-f', 'mp4', /*'-acodec mp3', */'-ab', '128k', path.join(dirname, tempFilename)],
+		'-bufsize', '2000k', '-f', 'mp4', /*'-acodec mp3', */'-ab', '128k', tempFilename],
 		{ stdio: ['pipe', process.stdout, process.stderr] });
 
 	ffmpeg.on("error", function (err) {
