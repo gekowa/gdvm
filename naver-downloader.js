@@ -132,7 +132,7 @@ processListPage = function (listPageHtml, d, callback) {
 					var staticVideoFilename = "video.mp4";
 					// swap file
 					fs.unlinkSync(videoFilePath);
-					fs.renameSync(newFilePath, staticVideoFilename);
+					fs.renameSync(newFilePath, path.join(taskPath, staticVideoFilename));
 
 					// update context
 					ctx = context.loadContext(taskPath);

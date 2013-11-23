@@ -121,13 +121,13 @@ transcodeVideo = function (videoFilePath, bitrate, callback) {
 	var ffmpeg,
 		dirname = path.dirname(videoFilePath),
 		filename = path.basename(videoFilePath),
-		tempFilename = path.join(dirname, "video-" + Math.random().toString().substr(2, 8) + ".mp4");
+		tempFilePath = path.join(dirname, "video-" + Math.random().toString().substr(2, 8) + ".mp4");
 
 	console.log(videoFilePath);
 
 	ffmpeg = spawn('ffmpeg',
 		['-y', '-i', videoFilePath, '-b', bitrate + 'k', '-minrate', bitrate + 'k', '-maxrate', bitrate + 'k',
-		'-bufsize', '2000k', '-f', 'mp4', /*'-acodec mp3', */'-ab', '128k', tempFilename],
+		'-bufsize', '2000k', '-f', 'mp4', /*'-acodec mp3', */'-ab', '128k', tempFilePath],
 		{ stdio: ['pipe', process.stdout, process.stderr] });
 
 	ffmpeg.on("error", function (err) {
@@ -136,7 +136,7 @@ transcodeVideo = function (videoFilePath, bitrate, callback) {
 
 	ffmpeg.on("close", function () {
 		if (callback && typeof callback === "function") {
-			callback.call(tempFilename);
+			callback.call(tempFilePath);
 		}
 	});
 };
