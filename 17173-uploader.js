@@ -365,7 +365,7 @@ doUpload = function (uctx) {
 						result = eval("(" + decoded + ")");
 
 					if (result.success === 1) {
-						uploadProgress[uctx.videoId] = "Success!";
+						uploadProgress[uctx.videoId] = " ID: " + uctx.videoId + " Success!";
 						// update context
 						ctx = context.loadContext(uctx.taskPath);
 						ctx.status = enums.TASK_STATUS.Uploaded;
@@ -570,7 +570,7 @@ uploadFile = function (urlstring, filePath, paramName, contentType, form, encodi
 			}
 		}
 	}).on("close", function () {
-		logger.error("The connection is closed.");
+
 	});
 };
 
