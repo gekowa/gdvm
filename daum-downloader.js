@@ -112,12 +112,13 @@ ctor.prototype.work = function () {
 					}
 				);
 
+				// download
 				waterfallFuncs.push(
 					function (videoUrl, callbackInner) {
 						if (!videoUrl) {
 							callbackInner(null);
 						}
-						logger.info("Begin download...");
+						logger.info("Begin downloading...");
 
 						var taskPath = context.getTaskPath(self.dataPath, self.dateString, friendlyId, VIDEO_PROVIDER),
 							fileExt = context.getExtFromUrl(videoUrl),
@@ -130,8 +131,8 @@ ctor.prototype.work = function () {
 							// update context
 							ctx = context.loadContext(taskPath);
 							ctx = _.extend(ctx, {
-								"status": enums.TASK_STATUS.Downloaded,
-								"downloadFinished": new Date(),
+								// "status": enums.TASK_STATUS.Downloaded,
+								// "downloadFinished": new Date(),
 								"videoFileName": "video" + fileExt
 							});
 
@@ -139,6 +140,39 @@ ctor.prototype.work = function () {
 
 							callbackInner(null);
 							logger.info("Download finished.");
+						});
+					}
+				);
+
+				// transcode
+				waterfallFuncs.push(
+					function (callbackInner) {
+						logger.info("Begin transcoding...");
+
+						var taskPath = context.getTaskPath(self.dataPath, self.dateString, friendlyId, VIDEO_PROVIDER),
+							ctx = context.loadContext(taskPath)
+							videoFileName = ctx.videoFileName,
+							videoFilePath = path.join(taskPath, videoFileName);
+
+						logger.info("Transcoding..."); //" [" + videoUrl + "] to [" + videoFilePath + "]");
+						context.transcodeVideo(videoFilePath, function (newFilePath) {
+							var staticVideoFilename = "video.mp4";
+							// swap file
+							fs.unlinkSync(videoFilePath);
+							fs.renameSync(newFilePath, staticVideoFilename);
+
+							// update context
+							ctx = context.loadContext(taskPath);
+							ctx = _.extend(ctx, {
+								"status": enums.TASK_STATUS.Downloaded,
+								"downloadFinished": new Date(),
+								"videoFileName": staticVideoFilename
+							});
+
+							context.saveContext(taskPath, ctx);
+
+							callbackInner(null);
+							logger.info("Transcode finished.");
 						});
 					}
 				);
