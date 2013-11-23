@@ -18,6 +18,7 @@ var path = require("path"),
 	saveContext,
 
 	downloadFile,
+	transcodeVideo,
 
 	getExtFromUrl,
 
@@ -123,8 +124,8 @@ transcodeVideo = function (videoFilePath, bitrate, callback) {
 		tempFilename = path.join(dirname, "video-" + Math.random().toString().substr(2, 8) + ".mp4");
 
 	ffmpeg = spawn("ffmpeg",
-		[" ", "-y", "-i " + videoFilePath, "-b " + bitrate + "k", "-minrate " + bitrate + "k", "-maxrate " + bitrate + "k",
-		"-bufsize 2000k", "-f mp4", /*"-acodec mp3", */"-ab 128k", path.join(dirname, tempFilename)],
+		['-y', '-i ' + videoFilePath, '-b ' + bitrate + 'k', '-minrate ' + bitrate + 'k', '-maxrate ' + bitrate + 'k',
+		'-bufsize 2000k', '-f mp4', /*'-acodec mp3', */'-ab 128k', path.join(dirname, tempFilename)],
 		{ stdio: ['pipe', process.stdout, process.stderr] });
 
 	ffmpeg.on("error", function (err) {
