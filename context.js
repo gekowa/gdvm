@@ -125,7 +125,7 @@ transcodeVideo = function (videoFilePath, bitrate, callback) {
 
 	console.log(videoFilePath);
 
-	ffmpeg = spawn('ffmpeg',
+	ffmpeg = spawn('d:/ffmpeg/ffmpeg.exe',
 		['-y', '-i', videoFilePath, '-b', bitrate + 'k', '-minrate', bitrate + 'k', '-maxrate', bitrate + 'k',
 		'-bufsize', '2000k', '-f', 'mp4', /*'-acodec mp3', */'-ab', '128k', tempFilePath],
 		{ stdio: ['pipe', process.stdout, process.stderr] });
@@ -136,7 +136,7 @@ transcodeVideo = function (videoFilePath, bitrate, callback) {
 
 	ffmpeg.on("close", function () {
 		if (callback && typeof callback === "function") {
-			callback.call(tempFilePath);
+			callback.call(undefined, tempFilePath);
 		}
 	});
 };
