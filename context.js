@@ -116,6 +116,28 @@ downloadFile = function (url, filePath, callback) {
 	});
 };
 
+transcodeVideo = function (videoFilePath, bitrate, callback) {
+	var ffmpeg,
+		dirname = path.dirname(videoFilePath),
+		filename = path.basename(videoFilePath),
+		tempFilename = path.join(dirname, "video-" + Math.random().toString().substr(2, 8) + ".mp4");
+
+	ffmpeg = spawn("ffmpeg",
+		["-y", "-i " + videoFilePath, "-b " + bitrate + "k", "-minrate " + bitrate + "k", "-maxrate " + bitrate + "k",
+		"-bufsize 2000k", "-f mp4", /*"-acodec mp3", */"-ab 128k", path.join(dirname, tempFilename)],
+		{ stdio: ['pipe', process.stdout, process.stderr] });
+
+	ffmpeg.on("error", function (err) {
+		console.log(err);
+	});
+
+	ffmpeg.on("close", function () {
+		if (callback && typeof callback === "function") {
+			callback.call(tempFilename);
+		}
+	});
+};
+
 
 exports.getPathOfDate= getPathOfDate;
 exports.initTaskPath= initTaskPath;
@@ -127,3 +149,4 @@ exports.saveContext= saveContext;
 
 exports.getExtFromUrl= getExtFromUrl;
 exports.downloadFile = downloadFile;
+exports.transcodeVideo = transcodeVideo;

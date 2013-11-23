@@ -106,9 +106,6 @@ processListPage = function (listPageHtml, d, callback) {
 				// update context
 				ctx = context.loadContext(taskPath);
 				ctx = _.extend(ctx, {
-					"status": enums.TASK_STATUS.Downloaded,
-					"downloadFinished": new Date(),
-					"videoFileName": "video" + fileExt,
 					"additionalTitleInfo": blogId
 				});
 
@@ -118,6 +115,39 @@ processListPage = function (listPageHtml, d, callback) {
 				logger.info("Download finished.");
 			});
 		});
+
+		// transcode
+		waterfallFuncs.push(
+			function (callbackInner) {
+				logger.info("Begin transcoding...");
+
+				var taskPath = context.getTaskPath(d.dataPath, d.dateString, vid, VIDEO_PROVIDER),
+					ctx = context.loadContext(taskPath),
+					videoFileName = ctx.videoFileName,
+					videoFilePath = path.join(taskPath, videoFileName);
+
+				logger.info("Transcoding..."); //" [" + videoUrl + "] to [" + videoFilePath + "]");
+				context.transcodeVideo(videoFilePath, "4000", function (newFilePath) {
+					var staticVideoFilename = "video.mp4";
+					// swap file
+					fs.unlinkSync(videoFilePath);
+					fs.renameSync(newFilePath, staticVideoFilename);
+
+					// update context
+					ctx = context.loadContext(taskPath);
+					ctx = _.extend(ctx, {
+						"status": enums.TASK_STATUS.Downloaded,
+						"downloadFinished": new Date(),
+						"videoFileName": staticVideoFilename
+					});
+
+					context.saveContext(taskPath, ctx);
+
+					callbackInner(null);
+					logger.info("Transcode finished.");
+				});
+			}
+		);
 	});
 
 	async.waterfall(waterfallFuncs, function () {
