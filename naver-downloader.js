@@ -106,7 +106,8 @@ processListPage = function (listPageHtml, d, callback) {
 				// update context
 				ctx = context.loadContext(taskPath);
 				ctx = _.extend(ctx, {
-					"additionalTitleInfo": blogId
+					"additionalTitleInfo": blogId,
+					"videoFileName": videoFileName
 				});
 
 				context.saveContext(taskPath, ctx);
