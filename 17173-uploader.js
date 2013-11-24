@@ -366,21 +366,22 @@ doUpload = function (uctx) {
 
 					if (result.success === 1) {
 						uploadProgress[uctx.videoId] = " ID: " + uctx.videoId + " Success!";
-						// update context
-						ctx = context.loadContext(uctx.taskPath);
-						ctx.status = enums.TASK_STATUS.Uploaded;
-						ctx.uploadFinished = new Date();
-						context.saveContext(uctx.taskPath, ctx);
 
-						uploadingVids.splice(uploadingVids.indexOf(uctx.videoId), 1);
 
 						logger.silly("Save successful! ");
 					} else {
-						uploadProgress[uctx.videoId] = "Upload Failed: " + decoded;
-						uploadingVids.splice(uploadingVids.indexOf(uctx.videoId), 1);
+						uploadProgress[uctx.videoId] = "Save failed: " + decoded;
 						logger.error("Save Failed! " + decoded);
 						callback("Save Failed!");
 					}
+
+					// update context
+					ctx = context.loadContext(uctx.taskPath);
+					ctx.status = enums.TASK_STATUS.Uploaded;
+					ctx.uploadFinished = new Date();
+					context.saveContext(uctx.taskPath, ctx);
+
+					uploadingVids.splice(uploadingVids.indexOf(uctx.videoId), 1);
 				} else {
 					// failed?
 					logger.error("Save Failed! " + res.statusCode);
