@@ -368,13 +368,10 @@ doUpload = function (uctx) {
 
 					if (result.success === 1) {
 						uploadProgress[uctx.videoId] = " ID: " + uctx.videoId + " Success!";
-
-
 						logger.silly("Save successful! ");
 					} else {
 						uploadProgress[uctx.videoId] = "Save failed: " + decoded;
 						logger.error("Save Failed! " + decoded);
-						callback("Save Failed!");
 					}
 
 					// update context
@@ -387,7 +384,6 @@ doUpload = function (uctx) {
 				} else {
 					// failed?
 					logger.error("Save Failed! " + res.statusCode);
-					callback("Save Failed!");
 				}
 			},
 			/* error */
