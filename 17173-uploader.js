@@ -207,8 +207,7 @@ ctor.prototype.initUpload = function (taskPath, ctx) {
 		"videoId": ctx.videoId,
 		"taskPath": taskPath,
 		"phpSessionId": phpSessionId,
-		"cookieJar": this.jar,
-		"taskPath": basename
+		"cookieJar": this.jar
 	};
 
 	uploadingVids.push(ctx.videoId);
@@ -309,15 +308,27 @@ doUpload = function (uctx) {
 				logger.silly("Upload finished! ");
 				if (res.statusCode === 200) {
 					var decoded = body.toString(),
-						result = eval("(" + decoded + ")");
+						result = eval("(" + decoded + ")"),
+						ctx;
 
 					if (result.success === 1) {
 						logger.silly("Upload successful! ");
 						callback(null);
 					} else {
 						logger.error("Upload Failed! " + decoded);
+
+						// update context
+						ctx = context.loadContext(uctx.taskPath);
+						ctx.status = enums.TASK_STATUS.Uploaded;
+						ctx.uploadFinished = new Date();
+						context.saveContext(uctx.taskPath, ctx);
+
+						uploadingVids.splice(uploadingVids.indexOf(uctx.videoId), 1);
+
 						callback("Upload Failed!");
 					}
+
+
 				} else {
 					logger.error("Upload Failed! " + res.statusCode);
 					// failed?
