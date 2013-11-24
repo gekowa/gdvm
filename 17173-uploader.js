@@ -163,7 +163,7 @@ ctor.prototype.work = function () {
 							Math.round(100 * p.transfered / p.totalFileSize, 2) + "%",
 							formatBytes(rate),
 							formatSeconds(eta));
-						disp = util.format(" ID: %s %s", vid.substr(0, 6), disp);
+						disp = util.format(" ID: %s %s", vid, disp);
 					}
 
 					for (i = 0; i < cols - disp.length - 1; i++) {
@@ -204,13 +204,13 @@ ctor.prototype.initUpload = function (taskPath, ctx) {
 		"videoFilePath": path.join(taskPath, ctx.videoFileName),
 		// "myusername": myusername,
 		// "myuserpass": myuserpass,
-		"videoId": ctx.videoId,
+		"videoId": basename,
 		"taskPath": taskPath,
 		"phpSessionId": phpSessionId,
 		"cookieJar": this.jar
 	};
 
-	uploadingVids.push(ctx.videoId);
+	uploadingVids.push(basename);
 
 	ctx.status = enums.TASK_STATUS.Uploading;
 	ctx.uploadStarted = new Date();
@@ -377,6 +377,7 @@ doUpload = function (uctx) {
 						logger.silly("Save successful! ");
 					} else {
 						uploadProgress[uctx.videoId] = "Upload Failed: " + decoded;
+						uploadingVids.splice(uploadingVids.indexOf(uctx.videoId), 1);
 						logger.error("Save Failed! " + decoded);
 						callback("Save Failed!");
 					}
