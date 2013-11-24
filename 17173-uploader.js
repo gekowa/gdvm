@@ -163,7 +163,7 @@ ctor.prototype.work = function () {
 							Math.round(100 * p.transfered / p.totalFileSize, 2) + "%",
 							formatBytes(rate),
 							formatSeconds(eta));
-						disp = util.format(" ID: %s %s", vid, disp);
+						disp = util.format(" ID: %s (%s) %s", vid.substr(0, 6), p.uploadContext.taskPath, disp);
 					}
 
 					for (i = 0; i < cols - disp.length - 1; i++) {
@@ -204,13 +204,14 @@ ctor.prototype.initUpload = function (taskPath, ctx) {
 		"videoFilePath": path.join(taskPath, ctx.videoFileName),
 		// "myusername": myusername,
 		// "myuserpass": myuserpass,
-		"videoId": basename,
+		"videoId": ctx.videoId,
 		"taskPath": taskPath,
 		"phpSessionId": phpSessionId,
-		"cookieJar": this.jar
+		"cookieJar": this.jar,
+		"taskPath": basename
 	};
 
-	uploadingVids.push(basename);
+	uploadingVids.push(ctx.videoId);
 
 	ctx.status = enums.TASK_STATUS.Uploading;
 	ctx.uploadStarted = new Date();
@@ -300,6 +301,7 @@ doUpload = function (uctx) {
 			}, "utf-8",
 			/* progress */
 			function (progress) {
+				progress.uploadContext = uctx;
 				uploadProgress[uctx.videoId] = progress;
 			},
 			/* finished*/
