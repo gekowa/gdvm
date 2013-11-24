@@ -153,7 +153,12 @@ ctor.prototype.work = function () {
 					bars = "";
 					p = uploadProgress[vid];
 					if (typeof p === "string") {
-						disp = p;
+						if (p.toLowerCase().indexOf("success")) {
+							disp = clc.green(p);
+						} else {
+							disp = clc.red(p);
+						}
+
 					} else if (typeof p === "object") {
 						rate = p.elapsed === 0 ? 0 : p.transfered / p.elapsed,
 						eta = rate > 0 ?
@@ -163,7 +168,7 @@ ctor.prototype.work = function () {
 							Math.round(100 * p.transfered / p.totalFileSize, 2) + "%",
 							formatBytes(rate),
 							formatSeconds(eta));
-						disp = util.format(" ID: %s (%s) %s", vid.substr(0, 6), p.uploadContext.taskPath, disp);
+						disp = util.format(" ID: %s (%s) %s", vid.substr(0, 6), path.basename(p.uploadContext.taskPath), clc.cyan(disp));
 					}
 
 					for (i = 0; i < cols - disp.length - 1; i++) {
@@ -315,7 +320,8 @@ doUpload = function (uctx) {
 						logger.silly("Upload successful! ");
 						callback(null);
 					} else {
-						logger.error("Upload Failed! " + decoded);
+						uploadProgress[uctx.videoId] = "Upload failed: " + decoded;
+						// logger.error("Upload Failed! " + decoded);
 
 						// update context
 						ctx = context.loadContext(uctx.taskPath);
