@@ -1,5 +1,5 @@
 var program = require("commander"),
-	logger = require("./logger.js"),
+	logger = require("./lib/logger.js"),
 	path = require("path"),
 	mode, from, dataPath, now, dateString, vhp,
 	username, password,
@@ -48,7 +48,7 @@ if (program.mode === "D") {
 		logger.error("Must --from provide video origin.");
 		process.exit(1);
 	}
-	downloaderCtor = require("./" + from + "-downloader.js");
+	downloaderCtor = require("./lib/" + from + "-downloader.js");
 
 	if (!downloaderCtor) {
 		logger.error("--from argument error, unsupported video origin.");
@@ -69,7 +69,7 @@ if (program.mode === "D") {
 
 	vhp = vhp.toLowerCase();
 
-	uploaderCtor = require("./" + vhp + "-uploader.js");
+	uploaderCtor = require("./lib/" + vhp + "-uploader.js");
 
 	if (!uploaderCtor) {
 		logger.error("--vhp argument error, unsupported video host provider.");
@@ -95,28 +95,32 @@ if (program.mode === "D") {
 		process.exit(1);
 	}
 
-	username = program["17173user"];
-	password = program["17173pass"];
+	username = program["user"];
+	password = program["pass"];
 
 	if (!username || !password) {
-		logger.error("Must provide 17173 username and password.");
+		logger.error("Must provide username and password for video host provider.");
 		process.exit(1);
 	}
 
 	from = from.split(',');
 
 	for (i = 0; i < from.length; i++) {
-		downloaderCtor = require("./" + from[i] + "-downloader.js");
+		downloaderCtor = require("./lib/" + from[i] + "-downloader.js");
 		downloader = new downloaderCtor.ctor(dataPath, dateString);
 		downloader.work();
 	}
 	logger.info("Downloaders started!");
 
-	uploader = new (require("./17173-uploader.js").ctor)(dataPath, dateString, username, password);
+	uploader = new (require("./lib/17173-uploader.js").ctor)(dataPath, dateString, username, password);
 	uploader.work();
 	logger.info("Uploaders started!");
 } else if (program.mode === "C") {
 	// check
+
+} else if (program.mode === "E") {
+	// encode mode
+
 
 } else {
 	logger.error("Unsupported mode!");
