@@ -3,8 +3,37 @@ var program = require("commander"),
 	path = require("path"),
 	mode, from, dataPath, now, dateString, vhp,
 	username, password,
-	downloaderCtor, downloader, uploaderCtor, uploader,
+	downloaderCtor, downloader, uploaderCtor, uploader, transcoder,
+	runUpload,
 	i;
+
+runUpload = function () {
+	vhp = program.vhp;
+	if (!vhp) {
+		logger.error("Must --vhp provide video host provider.");
+		process.exit(1);
+	}
+
+	vhp = vhp.toLowerCase();
+
+	uploaderCtor = require("./lib/" + vhp + "-uploader.js");
+
+	if (!uploaderCtor) {
+		logger.error("--vhp argument error, unsupported video host provider.");
+		process.exit(1);
+	}
+
+	username = program["user"];
+	password = program["pass"];
+
+	if (!username || !password) {
+		logger.error("Must provide username and password for video host provider.");
+		process.exit(1);
+	}
+
+	uploader = new uploaderCtor.ctor(dataPath, dateString, username, password);
+	uploader.work();
+};
 
 program
 	.version('0.0.2')
@@ -20,7 +49,7 @@ program
 logger.log("SD VideoMover (Node.js version) Started!");
 
 mode = program.mode;
-if (mode !== "D" && mode !== "U") {
+if (mode !== "D" && mode !== "U" && mode !== "T") {
 	logger.error("--mode must be D or U, exiting.");
 	process.exit(1);
 }
@@ -61,67 +90,44 @@ if (program.mode === "D") {
 } else if (program.mode === "U") {
 	logger.info("Upload mode.");
 
-	vhp = program.vhp;
-	if (!vhp) {
-		logger.error("Must --vhp provide video host provider.");
-		process.exit(1);
-	}
+	runUpload();
 
-	vhp = vhp.toLowerCase();
-
-	uploaderCtor = require("./lib/" + vhp + "-uploader.js");
-
-	if (!uploaderCtor) {
-		logger.error("--vhp argument error, unsupported video host provider.");
-		process.exit(1);
-	}
-
-	username = program["user"];
-	password = program["pass"];
-
-	if (!username || !password) {
-		logger.error("Must provide username and password for video host provider.");
-		process.exit(1);
-	}
-
-	uploader = new uploaderCtor.ctor(dataPath, dateString, username, password);
-	uploader.work();
 } else if (program.mode === "DU") {
-	logger.info("Download then Upload mode.");
+	// logger.info("Download then Upload mode.");
 
-	from = program.from;
-	if (!from) {
-		logger.error("Must --from provide video origin.");
-		process.exit(1);
-	}
+	// from = program.from;
+	// if (!from) {
+	// 	logger.error("Must --from provide video origin.");
+	// 	process.exit(1);
+	// }
 
-	username = program["user"];
-	password = program["pass"];
+	// username = program["user"];
+	// password = program["pass"];
 
-	if (!username || !password) {
-		logger.error("Must provide username and password for video host provider.");
-		process.exit(1);
-	}
+	// if (!username || !password) {
+	// 	logger.error("Must provide username and password for video host provider.");
+	// 	process.exit(1);
+	// }
 
-	from = from.split(',');
+	// from = from.split(',');
 
-	for (i = 0; i < from.length; i++) {
-		downloaderCtor = require("./lib/" + from[i] + "-downloader.js");
-		downloader = new downloaderCtor.ctor(dataPath, dateString);
-		downloader.work();
-	}
-	logger.info("Downloaders started!");
+	// for (i = 0; i < from.length; i++) {
+	// 	downloaderCtor = require("./lib/" + from[i] + "-downloader.js");
+	// 	downloader = new downloaderCtor.ctor(dataPath, dateString);
+	// 	downloader.work();
+	// }
+	// logger.info("Downloaders started!");
 
-	uploader = new (require("./lib/17173-uploader.js").ctor)(dataPath, dateString, username, password);
-	uploader.work();
-	logger.info("Uploaders started!");
+	// uploader = new (require("./lib/17173-uploader.js").ctor)(dataPath, dateString, username, password);
+	// uploader.work();
+	// logger.info("Uploaders started!");
 } else if (program.mode === "C") {
 	// check
 
-} else if (program.mode === "E") {
-	// encode mode
-
-
+} else if (program.mode === "T") {
+	// transcode and upload
+	transcoder = new (require("./lib/transcoder.js").ctor)(dataPath, dateString);
+	transcoder.work();
 } else {
 	logger.error("Unsupported mode!");
 }
