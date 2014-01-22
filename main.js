@@ -1,4 +1,5 @@
 var program = require("commander"),
+	context = require("./lib/context.js"),
 	logger = require("./lib/logger.js"),
 	path = require("path"),
 	mode, from, dataPath, now, dateString, vhp,
@@ -63,8 +64,7 @@ if (!dataPath) {
 
 dateString = program.date;
 if (!dateString) {
-	now = new Date();
-	dateString = now.toISOString().replace(/T[\w\W]+Z/, '').replace(/-/g, '');
+	dateString = context.getDateString();
 }
 logger.info("Working date: " + dateString);
 

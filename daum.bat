@@ -1,1 +1,1 @@
-node main --mode D --from daum --path e:\Workspace\gdvmdata
+node main --mode D --from daum --path F:\sdgo-video
